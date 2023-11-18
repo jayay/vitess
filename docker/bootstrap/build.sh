@@ -48,6 +48,10 @@ chmod -R o=rx *;
 
 arch=$(uname -m)
 
+if [[ "$arch" = "aarch64" ]]; then
+  arch="arm64"
+fi
+
 base_image="${base_image:-vitess/bootstrap:$version-common}"
 image="${image:-vitess/bootstrap:$version-$flavor}"
 
@@ -62,8 +66,9 @@ done
 if [ -f "docker/bootstrap/Dockerfile.$flavor" ]; then
     docker build \
       -f docker/bootstrap/Dockerfile.$flavor \
-      -t $image \
+      -t "$image" \
+      --platform "$arch" \
       --build-arg bootstrap_version=$version \
-      --build-arg image=$base_image \
+      --build-arg image="$base_image" \
       .
 fi
