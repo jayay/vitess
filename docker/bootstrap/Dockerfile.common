@@ -1,22 +1,29 @@
-FROM golang:1.21.3-bullseye
+FROM gentoo/stage3:latest
 
+# COPY --from=gentoo/portage:latest /var/db/repos/gentoo /var/db/repos/gentoo
+ENV USE="antlr bcel"
 # Install Vitess build dependencies
-RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
-    # TODO(mberlin): Group these to make it easier to understand which library actually requires them.
-    ant \
-    chromium \
-    curl \
-    default-jdk \
-    etcd \
-    g++ \
-    git \
-    make \
-    maven \
-    software-properties-common \
-    unzip \
-    zip \
-    xvfb \
-    && rm -rf /var/lib/apt/lists/*
+RUN --mount=type=bind,from=gentoo/portage:latest,src=/var/db/repos/gentoo,dst=/var/db/repos/gentoo --mount=type=cache,target=/var/cache/ \
+ echo -e "=dev-java/ant-jdepend-1.10.9 **\n=dev-java/ant-apache-oro-1.10.9 **\n=dev-java/ant-apache-bcel-1.10.9 **\n=dev-java/ant-apache-log4j-1.10.9-r1 **\n=dev-java/ant-apache-regexp-1.10.9 **\n=dev-java/ant-commons-net-1.10.9 **\n=dev-java/ant-jsch-1.10.9 **\n=dev-java/ant-apache-resolver-1.10.9 **\n=dev-java/gnu-jaf-1.1.2-r1 **\n=dev-java/ant-antlr-1.10.9 **\n=dev-java/ant-apache-bsf-1.10.9 **\n=dev-java/ant-1.10.9 **\n=dev-java/ant-apache-xalan2-1.10.9 **\n=dev-java/ant-commons-logging-1.10.9 **\n=dev-java/ant-javamail-1.10.9-r1 **\n=dev-java/maven-bin-3.9.5-r1 **" > /etc/portage/package.accept_keywords/01-java-ant && \
+ echo "=dev-lang/go-1.21.3 ~arm64" > /etc/portage/package.accept_keywords/01-dev-lang-go && \
+ echo "=dev-db/etcd-3.4.26 **" > /etc/portage/package.accept_keywords/01-dev-db-etcd && \
+ echo ">=x11-base/xorg-server-21.1.9 xvfb" > /etc/portage/package.use/xorg && \
+ echo ">=media-libs/libglvnd-1.6.0 X" >> /etc/portage/package.use/xorg && \
+ echo ">=sys-auth/pambase-20220214 elogind" >> /etc/portage/package.use/xorg && \
+ echo ">=sys-devel/binutils-2.40-r5 gold" >> /etc/portage/package.use/binutils && \
+ echo '>=dev-java/osgi-cmpn-8.0.0-r1 OSGi-Specification-2.0' >> /etc/portage/package.license && \
+ emerge --autounmask-write --autounmask \
+    dev-java/ant \
+    net-misc/curl \
+    =virtual/jdk-11-r2 \
+    dev-db/etcd \
+    dev-vcs/git \
+    =dev-lang/go-1.21.3 \
+    sys-devel/make \
+    dev-java/maven-bin \
+    app-arch/unzip \
+    app-arch/zip \
+    x11-misc/xvfb-run
 
 # Set up Vitess environment (equivalent to '. dev.env')
 ENV VTROOT /vt/src/vitess.io/vitess
@@ -37,7 +44,7 @@ RUN groupadd -r vitess && useradd -r -g vitess vitess && \
 
 # Download vendored Go dependencies
 RUN cd /vt/src/vitess.io/vitess && \
- su vitess -c "/usr/local/go/bin/go mod download"
+ su vitess -c "/usr/bin/go mod download"
 
 # Create mount point for actual data (e.g. MySQL data dir)
 VOLUME /vt/vtdataroot

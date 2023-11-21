@@ -33,11 +33,17 @@ USER vitess
 RUN make install PREFIX=/vt/install
 
 # Start over and build the final image.
-FROM debian:bullseye-slim
+FROM gentoo/stage3:latest
 
-# Install dependencies
-COPY docker/lite/install_dependencies.sh /vt/dist/install_dependencies.sh
-RUN /vt/dist/install_dependencies.sh mysql80
+RUN --mount=type=bind,from=gentoo/portage:latest,src=/var/db/repos/gentoo,dst=/var/db/repos/gentoo \
+  --mount=type=cache,target=/var/cache/ \
+  echo -e "=dev-db/percona-xtrabackup-8.0.30.23 **\n=dev-db/mysql-8.0.34 ~arm64" > /etc/portage/package.accept_keywords/xtrabackup && \
+  echo "=dev-db/mysql-connector-c++-8.0.33 ~arm64" >> /etc/portage/package.accept_keywords/mysql-connector && \
+  emerge --autounmask --autounmask-write =dev-db/mysql-8.0.34 dev-db/mysql-connector-c =dev-db/mysql-connector-c++-8.0.33::gentoo dev-perl/DBD-mysql net-misc/rsync dev-libs/libev dev-db/percona-xtrabackup
+
+RUN --mount=type=bind,from=gentoo/portage:latest,src=/var/db/repos/gentoo,dst=/var/db/repos/gentoo \
+  --mount=type=cache,target=/var/cache/ \
+  echo "1" | emerge --config =dev-db/mysql-8.0.34
 
 # Set up Vitess user and directory tree.
 RUN groupadd -r vitess && useradd -r -g vitess vitess
